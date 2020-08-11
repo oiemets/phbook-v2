@@ -58,14 +58,14 @@ class FireBaseDB {
 }
 
 class DataBase {
-    _Databases = {
+    static Databases = {
         local: LocalDB,
         firebase: FireBaseDB
     }
 
     constructor(type) {
         this.type = type;
-        this._database = new this._Databases[type](type)
+        this._database = new DataBase.Databases[type](type)
     }
 
     async getAllContacts() {
