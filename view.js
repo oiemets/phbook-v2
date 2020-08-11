@@ -1,7 +1,7 @@
 let state = {
     loader: false,
     contacts: [],
-    isAuth: false
+    database: undefined
 }
 
 function setState(newState) {
@@ -9,7 +9,8 @@ function setState(newState) {
     app();
 };
 
-(() => {
+
+(async () => {
     const root = document.querySelector('#root');
     const loader = document.querySelector('.lds-ring');
     loader.style.display = 'none';
@@ -17,28 +18,37 @@ function setState(newState) {
     const form = loginForm();
     root.append(form);
 
-    form.onsubmit = (e) => {
+    form.onsubmit = async (e) => {
         e.preventDefault();
         setState({...state, loader: true});
         const auth = firebase.auth();
-        auth.signOut()
-        .then(() => auth.signInWithEmailAndPassword(e.target.email.value, e.target.password.value))
-        .then((user) => {
-            if(user){
-                setState({...state, loader: true, isAuth: true});
-                getAllContacts()
-                .then((contacts) => {
-                setState({...state, contacts, loader: false})
-            });
+        await auth.signOut();
+
+
+        const user = await auth.signInWithEmailAndPassword(
+            e.target.email.value,
+            e.target.password.value
+        ).catch(() => {});
+
+        if(user) {
+            const database = new DataBase('firebase');
+            setState({...state, loader: true, database});
+
+            const contacts = await database.getAllContacts();
+            setState({...state, contacts, loader: false})
+            return;
         }
-        }).catch(e => {
-            setState({...state, loader: true});
-            alert(e + 'localStorage it is!');
-            getAllContacts()
-            .then((contacts) => {
-            setState({...state, contacts, loader: false})})
-    })}
-})();  
+
+        const database = new DataBase('local');
+        setState({...state, loader: true, database});
+
+        alert(e + 'localStorage it is!');
+
+        const contacts = await database.getAllContacts();
+        setState({...state, contacts, loader: false});
+    }
+
+})();
 
 function app() {
     const root = document.querySelector('#root');
@@ -52,20 +62,31 @@ function app() {
             root.innerHTML = contactList(state.contacts);
             const form = myForm();
             root.append(form);
-    
-            form.onsubmit = (e) => {
+
+            form.onsubmit = async (e) => {
                 e.preventDefault();
+                if (!state.database) {
+                    throw new Error('DataBase have to be instantiated');
+                }
+
                 setState({...state, loader: true});
-                let contact = {email: e.target.email.value,
-                    fullname: e.target.fullname.value,
-                    phone: e.target.phone.value}; 
-                let promise = addContact(contact);
-                promise.then(() => {
-                    setState({...state, contacts: [...state.contacts, contact], loader: false});
-                }).catch(e => {
+
+                const contact = ['email', 'fullname', 'phone'].reduce(
+                    (acc, field) => ({...acc, [field]: e.target[field].value}),
+                    {}
+                );
+
+                try {
+                    await state.database.addContact(contact);
+                    setState({
+                        ...state,
+                        contacts: [...state.contacts, contact],
+                        loader: false
+                    });
+                } catch (e) {
                     setState({...state, loader: false});
                     alert(e);
-                });                  
+                }
             }
         };
 }
@@ -97,8 +118,8 @@ function loginForm() {
     form.className = 'login_form';
     form.action = '#';
     form.innerHTML = `
-        <input type="text" name="email" placeholder="email" autocomplete="off" required>
-        <input type="text" name="password" placeholder="password" autocomplete="off" required>
+        <input type="text" name="email" placeholder="email" required>
+        <input type="password" name="password" placeholder="password" required>
         <button type="submit">log in</button>
     `;
     return form;
