@@ -58,8 +58,9 @@ function app() {
                 setState({...state, loader: true});
                 let contact = {email: e.target.email.value,
                     fullname: e.target.fullname.value,
-                    phone: e.target.phone.value}
-                addContact(contact).then(() => {
+                    phone: e.target.phone.value}; 
+                let promise = addContact(contact);
+                promise.then(() => {
                     setState({...state, contacts: [...state.contacts, contact], loader: false});
                 }).catch(e => {
                     setState({...state, loader: false});

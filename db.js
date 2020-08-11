@@ -27,18 +27,26 @@ function getAllContacts() {
 
 function addContact(contact) {
     if(state.isAuth){
-        return async (contact) => {
-            let database = await getAllContacts();
-            return new Promise((resolve, reject) => {
-                if(database.find(c => c.email === contact.email)){
-                    reject(new Error(`contact with this email: ${contact.email} already exists`));
+        return new Promise((resolve) => {
+            firebase.database().ref(CONTACTS).once('value', (snap) => {
+                if(!snap.val()){
+                    resolve([]);
                     return;
                 }
-                database.push(contact);
-                firebase.database().ref(CONTACTS).set([...database]);
-                resolve();
+                resolve(snap.val());
             })
-        }
+        }).then((database) => {
+                return new Promise((resolve, reject) => {
+                    if(database.find(c => c.email === contact.email)){
+                        reject(new Error(`contact with this email: ${contact.email} already exists`));
+                        return;
+                    }
+                    database.push(contact);
+                    firebase.database().ref(CONTACTS).set([...database]);
+                    resolve();
+                });
+            });
+        
     } else {
         return new Promise((resolve, reject) => {
             setTimeout(() => {
